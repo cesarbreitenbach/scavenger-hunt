@@ -37,8 +37,8 @@ export class Game {
     this.currentTreasure = null;
     this.usedTreasures = new Set();
     this.detectionBuffer = [];
-    this.BUFFER_SIZE = 3;
-    this.CONFIDENCE = 40;
+    this.BUFFER_SIZE = 2;
+    this.CONFIDENCE = 30;
 
     this.timeLeft = 0;
     this.timerInterval = null;

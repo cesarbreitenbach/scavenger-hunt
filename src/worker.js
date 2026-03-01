@@ -42,54 +42,28 @@ async function predict(imageBitmap) {
 
     const tensors = Array.isArray(results) ? results : [results];
 
-    // Log shapes nos primeiros frames para debug
-    if (frameCount <= 2) {
-      tensors.forEach((t, i) =>
-        console.log(`[YOLOv5] tensor[${i}] shape: [${t.shape}]`),
-      );
-    }
+    // Ordem confirmada pela análise do grafo do modelo:
+    // Identity   [0] → boxes   [1, N, 4]  (coordenadas)
+    // Identity_1 [1] → scores  [1, N]     (Max das probabilidades)
+    // Identity_2 [2] → classes [1, N]     (ArgMax = índice da classe)
+    // Identity_3 [3] → num     [1]        (Shape do resultado NMS)
+    const [boxesTensor, scoresTensor, classesTensor, numTensor] = tensors;
 
-    // Identifica tensores pelo shape
-    // boxes   → [1, N, 4]
-    // scores  → [1, N] com valores entre 0-1
-    // classes → [1, N] com valores inteiros (índices)
-    // num     → [1] ou escalar
-    let numDet = null,
-      scores = null,
-      classes = null,
-      boxes = null;
-
-    for (const t of tensors) {
-      const s = t.shape;
-      if (s.length === 3 && s[2] === 4) {
-        boxes = t; // [1, N, 4]
-      } else if (s.length <= 1 || (s.length === 2 && s[1] === 1)) {
-        numDet = t; // escalar ou [1] ou [1,1]
-      } else if (s.length === 2) {
-        // scores e classes ambos são [1, N]
-        // scores tem valores 0.0-1.0, classes tem índices inteiros
-        if (!scores) scores = t;
-        else classes = t;
-      }
-    }
-
-    if (!numDet || !scores || !classes) {
-      console.warn("[YOLOv5] usando fallback de ordem clássica");
-      [boxes, scores, classes, numDet] = tensors;
-    }
-
-    const numRaw = await numDet.data();
-    const scoresRaw = await scores.data();
-    const classRaw = await classes.data();
+    // Extrai dados e descarta tensores imediatamente
+    const [scoresData, classesData, numData] = await Promise.all([
+      scoresTensor.data(),
+      classesTensor.data(),
+      numTensor.data(),
+    ]);
 
     tensors.forEach((t) => t.dispose());
 
-    const n = Math.round(numRaw[0]);
+    const n = Math.round(numData[0]);
 
     for (let i = 0; i < n; i++) {
-      const score = scoresRaw[i];
+      const score = scoresData[i];
       if (score < 0.25) continue;
-      const classIdx = Math.round(classRaw[i]);
+      const classIdx = Math.round(classesData[i]);
       if (classIdx < 0 || classIdx >= labels.length) continue;
       detections.push({
         label: labels[classIdx],
@@ -98,11 +72,9 @@ async function predict(imageBitmap) {
     }
   } catch (e) {
     console.error("[YOLOv5] erro:", e);
-    // Garante dispose mesmo em erro
     try {
       input.dispose();
     } catch (_) {}
-    postMessage({ type: "error", message: "Erro na inferência: " + e.message });
   }
 
   return detections;
