@@ -1,0 +1,15 @@
+{
+  "name": "scavenger-hunt",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.17.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "@vitejs/plugin-basic-ssl": "^1.1.0"
+  }
+}

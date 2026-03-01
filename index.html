@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>🗺️ Caça ao Tesouro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gold:  #f5c842;
+      --gold2: #e8a020;
+      --red:   #c0392b;
+      --green: #27ae60;
+      --bg:    #1a0e05;
+      --dim:   rgba(255,220,140,0.5);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Crimson Pro', serif; color: #f5e6c8; }
+
+    #video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+
+    body::after {
+      content: ''; position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%);
+      pointer-events: none; z-index: 1;
+    }
+
+    /* LOADING */
+    #loading {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; z-index: 100;
+    }
+    #loading .logo { font-family: 'Pirata One'; font-size: 2.8rem; color: var(--gold); letter-spacing: 3px; text-shadow: 0 0 30px rgba(245,200,66,0.4); }
+    #loading .sub  { color: var(--dim); font-size: 0.85rem; letter-spacing: 2px; font-style: italic; }
+    #loadingMsg    { color: var(--gold2); font-size: 0.8rem; animation: blink 1s infinite; }
+    .bar-wrap { width: 200px; height: 3px; background: rgba(245,200,66,0.1); border-radius: 2px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--gold); animation: load 1.5s ease-in-out infinite alternate; border-radius: 2px; }
+    @keyframes load  { from{width:5%} to{width:95%} }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* TOP HUD */
+    #hud-top {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: max(env(safe-area-inset-top), 12px) 16px 10px;
+      display: flex; justify-content: space-between; align-items: center;
+      background: linear-gradient(to bottom, rgba(10,5,0,0.8), transparent);
+      z-index: 10;
+    }
+    .logo-small { font-family: 'Pirata One'; font-size: 1.2rem; color: var(--gold); letter-spacing: 2px; }
+    .hud-right  { display: flex; align-items: center; gap: 14px; }
+    .stat { display: flex; flex-direction: column; align-items: center; }
+    .stat-label { font-size: 0.5rem; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; }
+    .stat-value { font-family: 'Pirata One'; font-size: 1.4rem; color: var(--gold); line-height: 1; }
+    #roundCounter { font-size: 0.7rem; color: var(--dim); background: rgba(0,0,0,0.4); padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(245,200,66,0.2); }
+    #score.bump { animation: bump 0.35s ease; }
+    @keyframes bump { 0%{transform:scale(1)} 50%{transform:scale(1.5)} 100%{transform:scale(1)} }
+
+    /* CROSSHAIR */
+    #crosshair { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 70px; height: 70px; z-index: 5; pointer-events: none; }
+    #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,220,140,0.45); }
+    #crosshair::before { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
+    #crosshair::after  { height: 1px; width: 100%; top: 50%; transform: translateY(-50%); }
+    .ch-corner { position: absolute; width: 16px; height: 16px; border-color: var(--gold); border-style: solid; border-width: 0; }
+    .ch-corner.tl { top:0; left:0; border-top-width:2px; border-left-width:2px; }
+    .ch-corner.tr { top:0; right:0; border-top-width:2px; border-right-width:2px; }
+    .ch-corner.bl { bottom:0; left:0; border-bottom-width:2px; border-left-width:2px; }
+    .ch-corner.br { bottom:0; right:0; border-bottom-width:2px; border-right-width:2px; }
+    #crosshair.detecting .ch-corner { border-color: var(--green); animation: chpulse 0.4s ease infinite alternate; }
+    @keyframes chpulse { from{opacity:1} to{opacity:0.3} }
+
+    /* BOTTOM HUD */
+    #hud-bottom {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 12px 16px max(env(safe-area-inset-bottom), 16px);
+      background: linear-gradient(to top, rgba(10,5,0,0.92) 65%, transparent);
+      z-index: 10; display: flex; flex-direction: column; gap: 10px;
+    }
+
+    /* Scan */
+    #scanRow { display: flex; align-items: center; gap: 8px; }
+    #scanDot { width: 7px; height: 7px; border-radius: 50%; background: #333; transition: background 0.1s; flex-shrink: 0; }
+    #scanDot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    #scanLabel { font-size: 0.6rem; color: var(--dim); letter-spacing: 2px; }
+
+    /* Detections */
+    #detectList { display: flex; flex-wrap: wrap; gap: 5px; min-height: 22px; }
+    .detect-item { font-size: 0.65rem; padding: 2px 9px; border-radius: 20px; background: rgba(255,220,140,0.07); border: 1px solid rgba(255,220,140,0.12); color: rgba(255,220,140,0.5); }
+    .detect-item.target { background: rgba(39,174,96,0.15); border-color: var(--green); color: var(--green); font-weight: bold; }
+    .no-detect { font-size: 0.65rem; color: rgba(255,220,140,0.25); font-style: italic; }
+
+    /* Detection progress */
+    .prog-track { height: 4px; background: rgba(255,220,140,0.1); border-radius: 2px; overflow: hidden; }
+    #progressBar { height: 100%; width: 0%; background: var(--green); border-radius: 2px; transition: width 0.15s; }
+
+    /* Timer */
+    .timer-row { display: flex; align-items: center; gap: 10px; }
+    #timer { font-family: 'Pirata One'; font-size: 2rem; color: var(--gold); line-height: 1; min-width: 2ch; text-align: center; transition: color 0.3s; }
+    #timer.urgent { color: var(--red); animation: shake 0.3s ease infinite alternate; }
+    @keyframes shake { from{transform:translateX(-1px)} to{transform:translateX(1px)} }
+    .timer-track { flex: 1; height: 5px; background: rgba(255,220,140,0.1); border-radius: 3px; overflow: hidden; }
+    #timerBar { height: 100%; width: 100%; background: var(--gold); border-radius: 3px; transition: width 1s linear, background 0.3s; }
+    #timerBar.urgent { background: var(--red); }
+
+    /* Treasure card */
+    #treasure {
+      background: rgba(10,5,0,0.65); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(245,200,66,0.2); border-radius: 16px; padding: 13px 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    #treasure.new-treasure { animation: flash 0.5s ease; }
+    @keyframes flash { 0%{border-color:var(--gold);box-shadow:0 0 24px rgba(245,200,66,0.35)} 100%{border-color:rgba(245,200,66,0.2);box-shadow:none} }
+    #treasureEmoji { font-size: 2.8rem; line-height: 1; flex-shrink: 0; }
+    .treasure-info { flex: 1; min-width: 0; }
+    .treasure-label { font-size: 0.55rem; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; }
+    #treasureName { font-family: 'Pirata One'; font-size: 1.6rem; color: var(--gold); letter-spacing: 1px; line-height: 1.1; }
+    .pts { font-size: 0.72rem; font-weight: 600; padding: 4px 10px; border-radius: 20px; letter-spacing: 1px; flex-shrink: 0; }
+    .pts-1 { background: rgba(100,200,255,0.12); color: #64c8ff; border: 1px solid rgba(100,200,255,0.25); }
+    .pts-2 { background: rgba(245,200,66,0.12); color: var(--gold); border: 1px solid rgba(245,200,66,0.25); }
+    .pts-3 { background: rgba(192,57,43,0.12); color: #e74c3c; border: 1px solid rgba(192,57,43,0.25); }
+
+    /* Status + Start */
+    .status { font-size: 0.65rem; color: var(--dim); letter-spacing: 1.5px; text-align: center; font-style: italic; }
+    .status.ready { color: var(--green); font-style: normal; }
+    .status.error { color: var(--red); }
+    #startBtn { width: 100%; padding: 15px; background: var(--gold); color: #1a0e05; font-family: 'Pirata One'; font-size: 1.2rem; letter-spacing: 3px; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+    #startBtn:disabled { opacity: 0.4; cursor: default; }
+
+    /* CELEBRATION */
+    #celebration { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.82); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+    #celebration.show { opacity: 1; }
+    #celEmoji { font-size: 5rem; animation: bounce 0.45s ease infinite alternate; }
+    @keyframes bounce { from{transform:scale(1)} to{transform:scale(1.15)} }
+    #celTitle { font-family: 'Pirata One'; font-size: 2.5rem; color: var(--gold); margin-top: 14px; letter-spacing: 4px; }
+    #celSub   { font-size: 1.1rem; color: var(--dim); margin-top: 6px; font-style: italic; }
+
+    /* RESULT SCREEN */
+    #resultScreen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; z-index: 300; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+    #resultScreen.show { opacity: 1; pointer-events: all; }
+    .result-title { font-family: 'Pirata One'; font-size: 1rem; color: var(--dim); letter-spacing: 4px; }
+    #resultScore  { font-family: 'Pirata One'; font-size: 6rem; color: var(--gold); line-height: 1; text-shadow: 0 0 40px rgba(245,200,66,0.4); }
+    .result-pts   { font-size: 0.8rem; color: var(--dim); letter-spacing: 2px; }
+    .result-divider { width: 100px; height: 1px; background: rgba(245,200,66,0.2); margin: 8px 0; }
+    #resultFound, #resultSkipped { font-size: 1rem; color: #f5e6c8; font-style: italic; }
+    #playAgainBtn { margin-top: 20px; padding: 14px 40px; background: var(--gold); color: #1a0e05; font-family: 'Pirata One'; font-size: 1.2rem; letter-spacing: 3px; border: none; border-radius: 12px; cursor: pointer; }
+
+    .confetti { position: fixed; top: -10px; font-size: 1.4rem; animation: fall 1.8s ease-in forwards; }
+    @keyframes fall { to { transform: translateY(105vh) rotate(720deg); opacity: 0; } }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="logo">⚓ Caça ao Tesouro</div>
+  <div class="sub">Powered by YOLOv5 · TensorFlow.js</div>
+  <div id="loadingMsg">Inicializando IA...</div>
+  <div class="bar-wrap"><div class="bar-fill"></div></div>
+</div>
+
+<!-- Celebration -->
+<div id="celebration">
+  <div id="celEmoji">💎</div>
+  <div id="celTitle">ENCONTROU!</div>
+  <div id="celSub"></div>
+</div>
+
+<!-- Result -->
+<div id="resultScreen">
+  <div class="result-title">⚓ TESOURO COLETADO ⚓</div>
+  <div id="resultScore">0</div>
+  <div class="result-pts">PONTOS</div>
+  <div class="result-divider"></div>
+  <div id="resultFound"></div>
+  <div id="resultSkipped"></div>
+  <button id="playAgainBtn">🗺️ JOGAR NOVAMENTE</button>
+</div>
+
+<!-- Camera -->
+<video id="video" playsinline muted autoplay></video>
+
+<!-- Crosshair -->
+<div id="crosshair">
+  <div class="ch-corner tl"></div><div class="ch-corner tr"></div>
+  <div class="ch-corner bl"></div><div class="ch-corner br"></div>
+</div>
+
+<!-- Top HUD -->
+<div id="hud-top">
+  <div class="logo-small">⚓ Tesouro</div>
+  <div class="hud-right">
+    <div id="roundCounter">1 / 5</div>
+    <div class="stat">
+      <div class="stat-label">Achados</div>
+      <div class="stat-value" id="found">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Pontos</div>
+      <div class="stat-value" id="score">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom HUD -->
+<div id="hud-bottom">
+
+  <!-- Shown only during game -->
+  <div id="gameHUD" style="display:none;flex-direction:column;gap:10px;">
+    <div id="scanRow">
+      <div id="scanDot"></div>
+      <span id="scanLabel">ESCANEANDO</span>
+    </div>
+    <div id="detectList"><span class="no-detect">aguardando câmera...</span></div>
+    <div class="prog-track"><div id="progressBar"></div></div>
+    <div class="timer-row">
+      <div id="timer">--</div>
+      <div class="timer-track"><div id="timerBar"></div></div>
+    </div>
+    <div id="treasure">
+      <div id="treasureEmoji">🗺️</div>
+      <div class="treasure-info">
+        <div class="treasure-label">Encontre o tesouro</div>
+        <div id="treasureName">AGUARDANDO</div>
+      </div>
+      <div class="pts pts-1" id="treasurePts">? pts</div>
+    </div>
+  </div>
+
+  <!-- Shown before game starts -->
+  <div id="preHUD" style="display:flex;flex-direction:column;gap:10px;">
+    <div class="status" id="status">Carregando modelo de IA...</div>
+    <button id="startBtn" disabled>⏳ Carregando IA...</button>
+  </div>
+
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
