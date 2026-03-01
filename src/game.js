@@ -1,3 +1,4 @@
+// to have more treasures, just add more items here with the same structure
 export const TREASURES = [
   { label: "bottle", emoji: "🍶", pts: 1, name: "Garrafa", time: 30 },
   { label: "cup", emoji: "☕", pts: 1, name: "Xícara", time: 30 },

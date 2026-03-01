@@ -42,14 +42,13 @@ async function predict(imageBitmap) {
 
     const tensors = Array.isArray(results) ? results : [results];
 
-    // Ordem confirmada pela análise do grafo do modelo:
     // Identity   [0] → boxes   [1, N, 4]  (coordenadas)
     // Identity_1 [1] → scores  [1, N]     (Max das probabilidades)
     // Identity_2 [2] → classes [1, N]     (ArgMax = índice da classe)
     // Identity_3 [3] → num     [1]        (Shape do resultado NMS)
     const [boxesTensor, scoresTensor, classesTensor, numTensor] = tensors;
 
-    // Extrai dados e descarta tensores imediatamente
+    // extract data from tensors amd dispose them asap to free memory
     const [scoresData, classesData, numData] = await Promise.all([
       scoresTensor.data(),
       classesTensor.data(),
