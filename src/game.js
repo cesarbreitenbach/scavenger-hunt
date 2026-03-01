@@ -1,31 +1,34 @@
-// to have more treasures, just add more items here with the same structure
 export const TREASURES = [
   { label: "bottle", emoji: "🍶", pts: 1, name: "Garrafa", time: 30 },
   { label: "cup", emoji: "☕", pts: 1, name: "Xícara", time: 30 },
-  { label: "chair", emoji: "🪑", pts: 1, name: "Cadeira", time: 25 },
-  { label: "couch", emoji: "🛋️", pts: 1, name: "Sofá", time: 25 },
+  { label: "chair", emoji: "🪑", pts: 1, name: "Cadeira", time: 30 },
   { label: "tv", emoji: "📺", pts: 1, name: "TV", time: 25 },
   { label: "bed", emoji: "🛏️", pts: 1, name: "Cama", time: 25 },
+  { label: "sink", emoji: "🚿", pts: 1, name: "Pia", time: 25 },
+  { label: "refrigerator", emoji: "🧊", pts: 1, name: "Geladeira", time: 25 },
+  { label: "bowl", emoji: "🥣", pts: 1, name: "Tigela", time: 30 },
+  { label: "couch", emoji: "🛋️", pts: 1, name: "Sofá", time: 40 },
+
   { label: "laptop", emoji: "💻", pts: 2, name: "Laptop", time: 35 },
   { label: "clock", emoji: "🕐", pts: 2, name: "Relógio", time: 40 },
-  { label: "book", emoji: "📚", pts: 2, name: "Livro", time: 30 },
+  { label: "book", emoji: "📚", pts: 2, name: "Livro", time: 35 },
   { label: "cell phone", emoji: "📱", pts: 2, name: "Celular", time: 30 },
   { label: "keyboard", emoji: "⌨️", pts: 2, name: "Teclado", time: 30 },
   { label: "remote", emoji: "🎮", pts: 2, name: "Controle", time: 35 },
-  { label: "vase", emoji: "🏺", pts: 3, name: "Vaso", time: 45 },
-  { label: "scissors", emoji: "✂️", pts: 3, name: "Tesoura", time: 45 },
+  { label: "mouse", emoji: "🖱️", pts: 2, name: "Mouse", time: 35 },
+  { label: "microwave", emoji: "📦", pts: 2, name: "Microondas", time: 30 },
+  { label: "backpack", emoji: "🎒", pts: 2, name: "Mochila", time: 35 },
+  { label: "suitcase", emoji: "🧳", pts: 2, name: "Mala", time: 35 },
+
+  { label: "potted plant", emoji: "🪴", pts: 3, name: "Planta", time: 45 },
   {
-    label: "toothbrush",
-    emoji: "🪥",
+    label: "teddy bear",
+    emoji: "🧸",
     pts: 3,
-    name: "Escova de Dente",
+    name: "Urso de Pelúcia",
     time: 45,
   },
-  { label: "potted plant", emoji: "🪴", pts: 3, name: "Planta", time: 40 },
-  { label: "mouse", emoji: "🖱️", pts: 2, name: "Mouse", time: 35 },
-  { label: "sink", emoji: "🚿", pts: 1, name: "Pia", time: 25 },
-  { label: "microwave", emoji: "📦", pts: 2, name: "Microondas", time: 30 },
-  { label: "refrigerator", emoji: "🧊", pts: 1, name: "Geladeira", time: 25 },
+  { label: "banana", emoji: "🍌", pts: 3, name: "Banana", time: 40 },
 ];
 
 export const ROUND_SIZE = 5;
@@ -36,10 +39,9 @@ export class Game {
     this.found = 0;
     this.skipped = 0;
     this.currentTreasure = null;
-    this.usedTreasures = new Set();
     this.detectionBuffer = [];
-    this.BUFFER_SIZE = 2;
-    this.CONFIDENCE = 30;
+    this.BUFFER_SIZE = 3;
+    this.CONFIDENCE = 20;
 
     this.timeLeft = 0;
     this.timerInterval = null;
@@ -50,8 +52,6 @@ export class Game {
   }
 
   startRound() {
-    this.usedTreasures.clear();
-    // Sort to get random treasures each round without repeats, then take the first
     const shuffled = [...TREASURES].sort(() => Math.random() - 0.5);
     this.roundItems = shuffled.slice(0, ROUND_SIZE);
     this.roundIndex = 0;
@@ -63,9 +63,7 @@ export class Game {
   nextTreasure() {
     this.stopTimer();
     this.detectionBuffer = [];
-
     if (this.roundIndex >= this.roundItems.length) return null;
-
     this.currentTreasure = this.roundItems[this.roundIndex];
     this.roundIndex++;
     this.startTimer(this.currentTreasure.time);

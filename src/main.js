@@ -3,6 +3,8 @@ import { Game, ROUND_SIZE } from "./game.js";
 const game = new Game();
 let worker = null;
 let isRunning = false;
+let loopId = 0;
+let pendingTimeout = null;
 
 const video = document.getElementById("video");
 const startBtn = document.getElementById("startBtn");
@@ -30,6 +32,7 @@ const resultScore = document.getElementById("resultScore");
 const resultFound = document.getElementById("resultFound");
 const resultSkipped = document.getElementById("resultSkipped");
 const playAgainBtn = document.getElementById("playAgainBtn");
+const skipBtn = document.getElementById("skipBtn");
 
 function initWorker() {
   worker = new Worker(new URL("./worker.js", import.meta.url), {
@@ -51,9 +54,7 @@ function initWorker() {
       setStatus("Pronto! Toque para começar.", "ready");
     }
 
-    if (data.type === "error") {
-      setStatus("⚠ " + data.message, "error");
-    }
+    if (data.type === "error") setStatus("⚠ " + data.message, "error");
 
     if (data.type === "prediction" && isRunning) {
       renderDetections(data.detections);
@@ -89,42 +90,47 @@ async function startCamera() {
 }
 
 function startLoop() {
-  if (!isRunning) return;
-  createImageBitmap(video)
-    .then((bitmap) => {
-      worker.postMessage({ type: "predict", image: bitmap }, [bitmap]);
-    })
-    .catch(() => {});
-  setTimeout(startLoop, 300);
-}
-
-function updateTimerUI() {
-  if (!game.currentTreasure) return;
-  timerEl.textContent = game.timeLeft;
-  updateTimerBar(game.getTimerRatio());
-
-  if (game.timeLeft <= 10) {
-    timerEl.classList.add("urgent");
-    timerBar.classList.add("urgent");
-  } else {
-    timerEl.classList.remove("urgent");
-    timerBar.classList.remove("urgent");
+  const myId = ++loopId;
+  function tick() {
+    if (!isRunning || loopId !== myId) return;
+    createImageBitmap(video)
+      .then((bitmap) =>
+        worker.postMessage({ type: "predict", image: bitmap }, [bitmap]),
+      )
+      .catch(() => {});
+    setTimeout(tick, 300);
   }
+  tick();
 }
 
 setInterval(() => {
-  if (isRunning && game.currentTreasure) updateTimerUI();
+  if (isRunning && game.currentTreasure) {
+    timerEl.textContent = game.timeLeft;
+    updateTimerBar(game.getTimerRatio());
+    const urgent = game.timeLeft <= 10;
+    timerEl.classList.toggle("urgent", urgent);
+    timerBar.classList.toggle("urgent", urgent);
+  }
 }, 1000);
 
 function updateTimerBar(ratio) {
   timerBar.style.width = ratio * 100 + "%";
 }
 
+// ---- GAME FLOW ----
 function startRound() {
+  // Cancela qualquer celebração pendente do jogo anterior
+  if (pendingTimeout) {
+    clearTimeout(pendingTimeout);
+    pendingTimeout = null;
+    celebration.classList.remove("show");
+  }
+
   game.startRound();
   game.onTimeUp = onTimeUp;
   scoreEl.textContent = "0";
   foundEl.textContent = "0";
+  updateProgress(0);
   nextTreasure();
 }
 
@@ -141,48 +147,68 @@ function nextTreasure() {
   treasurePts.className = `pts pts-${t.pts}`;
   roundCounter.textContent = `${game.roundIndex} / ${ROUND_SIZE}`;
   updateProgress(0);
-  updateTimerUI();
+
+  timerEl.textContent = t.time;
+  timerEl.classList.remove("urgent");
+  timerBar.classList.remove("urgent");
+  timerBar.style.width = "100%";
+  timerBar.style.background = "";
 
   treasureEl.classList.add("new-treasure");
   setTimeout(() => treasureEl.classList.remove("new-treasure"), 600);
+
+  skipBtn.style.display = "block";
+}
+
+function skipTreasure() {
+  if (!isRunning || !game.currentTreasure) return;
+  skipBtn.style.display = "none";
+  game.stopTimer();
+  game.skipped++;
+  showCelebration("⏭️", "PULADO", "Próximo tesouro...", 1200);
 }
 
 function onTimeUp() {
-  celEmoji.textContent = "⏰";
-  celTitle.textContent = "TEMPO!";
-  celSub.textContent = `Próximo tesouro...`;
-  celebration.classList.add("show");
-  setTimeout(() => {
-    celebration.classList.remove("show");
-    nextTreasure();
-  }, 1500);
+  skipBtn.style.display = "none";
+  showCelebration("⏰", "TEMPO!", "Próximo tesouro...", 1500);
 }
 
 function showFound() {
+  skipBtn.style.display = "none";
   scoreEl.textContent = game.score;
   foundEl.textContent = game.found;
   scoreEl.classList.add("bump");
   setTimeout(() => scoreEl.classList.remove("bump"), 400);
 
-  celEmoji.textContent = game.currentTreasure.emoji;
-  celTitle.textContent = "ENCONTROU!";
-  celSub.textContent = `+${game.currentTreasure.pts} ponto${game.currentTreasure.pts > 1 ? "s" : ""}!`;
+  spawnConfetti();
+  showCelebration(
+    game.currentTreasure.emoji,
+    "ENCONTROU!",
+    `+${game.currentTreasure.pts} ponto${game.currentTreasure.pts > 1 ? "s" : ""}!`,
+    1800,
+  );
+}
+
+function showCelebration(emoji, title, sub, duration) {
+  celEmoji.textContent = emoji;
+  celTitle.textContent = title;
+  celSub.textContent = sub;
   celebration.classList.add("show");
 
-  spawnConfetti();
-
-  setTimeout(() => {
+  pendingTimeout = setTimeout(() => {
+    pendingTimeout = null;
     celebration.classList.remove("show");
     nextTreasure();
-  }, 1800);
+  }, duration);
 }
 
 function showResult() {
   isRunning = false;
   game.stopTimer();
+  skipBtn.style.display = "none";
   resultScore.textContent = game.score;
   resultFound.textContent = `${game.found} / ${ROUND_SIZE} encontrados`;
-  resultSkipped.textContent = `${game.skipped} perdidos por tempo`;
+  resultSkipped.textContent = `${game.skipped} perdidos`;
   resultScreen.classList.add("show");
 }
 
@@ -237,7 +263,6 @@ startBtn.addEventListener("click", async () => {
     startLoop();
     document.getElementById("preHUD").style.display = "none";
     document.getElementById("gameHUD").style.display = "flex";
-    setStatus("IA ativa — encontre o tesouro!", "ready");
   } catch (e) {
     setStatus("⚠ Câmera: " + e.message, "error");
     startBtn.disabled = false;
@@ -251,5 +276,7 @@ playAgainBtn.addEventListener("click", () => {
   startRound();
   startLoop();
 });
+
+skipBtn.addEventListener("click", skipTreasure);
 
 initWorker();

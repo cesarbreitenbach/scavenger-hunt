@@ -127,6 +127,18 @@
     #startBtn { width: 100%; padding: 15px; background: var(--gold); color: #1a0e05; font-family: 'Pirata One'; font-size: 1.2rem; letter-spacing: 3px; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
     #startBtn:disabled { opacity: 0.4; cursor: default; }
 
+    #skipBtn {
+      width: 100%; padding: 10px;
+      background: transparent;
+      color: rgba(255,220,140,0.45);
+      font-family: 'Crimson Pro', serif;
+      font-size: 0.9rem; letter-spacing: 1px;
+      border: 1px solid rgba(255,220,140,0.15);
+      border-radius: 10px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    #skipBtn:active { background: rgba(255,220,140,0.08); }
+
     /* CELEBRATION */
     #celebration { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.82); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
     #celebration.show { opacity: 1; }
@@ -225,6 +237,7 @@
       </div>
       <div class="pts pts-1" id="treasurePts">? pts</div>
     </div>
+    <button id="skipBtn" style="display:none">⏭ Não tenho esse objeto</button>
   </div>
 
   <!-- Shown before game starts -->
